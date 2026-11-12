@@ -1,0 +1,12 @@
+{
+  "name": "b2b-commerce-integration-simulator",
+  "version": "1.0.0",
+  "description": "Mock ERP integration simulator for Salesforce B2B Commerce",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.0.0"
+  }
+}
