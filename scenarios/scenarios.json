@@ -1,0 +1,93 @@
+{
+  "pricing-success": {
+    "description": "Standard pricing response",
+    "statusCode": 200,
+    "delayMs": 0,
+    "body": {
+      "currency": "USD",
+      "unitPrice": 125.5,
+      "priceList": "B2B-US",
+      "sourceSystem": "Mock ERP"
+    }
+  },
+  "pricing-discounted": {
+    "description": "Discounted product price",
+    "statusCode": 200,
+    "delayMs": 0,
+    "body": {
+      "currency": "USD",
+      "unitPrice": 99.99,
+      "discountPercent": 20,
+      "priceList": "B2B-US-PROMO",
+      "sourceSystem": "Mock ERP"
+    }
+  },
+  "pricing-not-found": {
+    "description": "ERP cannot find the SKU",
+    "statusCode": 404,
+    "delayMs": 0,
+    "body": {
+      "errorCode": "SKU_NOT_FOUND",
+      "message": "The requested SKU was not found in the ERP."
+    }
+  },
+  "server-error": {
+    "description": "Simulate an ERP internal server error",
+    "statusCode": 500,
+    "delayMs": 0,
+    "body": {
+      "errorCode": "ERP_INTERNAL_ERROR",
+      "message": "Simulated ERP failure."
+    }
+  },
+  "slow-response": {
+    "description": "Simulate a slow external API",
+    "statusCode": 200,
+    "delayMs": 4000,
+    "body": {
+      "currency": "USD",
+      "unitPrice": 125.5,
+      "sourceSystem": "Mock ERP"
+    }
+  },
+  "inventory-in-stock": {
+    "description": "Inventory is available",
+    "statusCode": 200,
+    "delayMs": 0,
+    "body": {
+      "availableQuantity": 250,
+      "inventoryStatus": "IN_STOCK",
+      "warehouse": "US-EAST"
+    }
+  },
+  "inventory-out-of-stock": {
+    "description": "No inventory available",
+    "statusCode": 200,
+    "delayMs": 0,
+    "body": {
+      "availableQuantity": 0,
+      "inventoryStatus": "OUT_OF_STOCK",
+      "warehouse": "US-EAST"
+    }
+  },
+  "order-accepted": {
+    "description": "ERP accepted the order",
+    "statusCode": 201,
+    "delayMs": 0,
+    "body": {
+      "accepted": true,
+      "erpOrderId": "ERP-MOCK-100001",
+      "message": "Order accepted by mock ERP."
+    }
+  },
+  "order-rejected": {
+    "description": "ERP rejected the order",
+    "statusCode": 422,
+    "delayMs": 0,
+    "body": {
+      "accepted": false,
+      "errorCode": "ORDER_VALIDATION_FAILED",
+      "message": "Simulated order validation failure."
+    }
+  }
+}
