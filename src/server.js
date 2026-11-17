@@ -28,6 +28,7 @@ function recordRequest(req, statusCode, responseBody, startedAt) {
     requestBody: req.body && Object.keys(req.body).length ? req.body : null,
     responseBody
   });
+  console.log('[SIMULATOR REQUEST]', JSON.stringify(logs[0]));
   if (logs.length > MAX_LOGS) logs.length = MAX_LOGS;
 }
 
