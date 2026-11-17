@@ -1,3 +1,4 @@
+
 const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,14 +9,18 @@ const scenariosPath = path.join(__dirname, '..', 'scenarios', 'scenarios.json');
 const MAX_LOGS = 500;
 
 app.use(express.json({ limit: '1mb' }));
+
+// Log incoming requests
 app.use((req, res, next) => {
-    console.log(`[REQUEST] ${req.method} ${req.originalUrl}`);
-    console.log('[BODY]', req.body);
-    next();
+  console.log(`[REQUEST] ${req.method} ${req.originalUrl}`);
+  console.log('[BODY]', req.body);
+  next();
 });
+
 const logs = [];
 const scenarios = JSON.parse(fs.readFileSync(scenariosPath, 'utf8'));
 
+// Store request details in simulator logs
 function recordRequest(req, statusCode, responseBody, startedAt) {
   logs.unshift({
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -28,42 +33,52 @@ function recordRequest(req, statusCode, responseBody, startedAt) {
     requestBody: req.body && Object.keys(req.body).length ? req.body : null,
     responseBody
   });
+
   console.log('[SIMULATOR REQUEST]', JSON.stringify(logs[0]));
-  if (logs.length > MAX_LOGS) logs.length = MAX_LOGS;
+
+  if (logs.length > MAX_LOGS) {
+    logs.length = MAX_LOGS;
+  }
 }
 
+// Send mock response with optional delay
 function sendMock(req, res, statusCode, body, startedAt, delayMs = 0) {
   const safeDelay = Math.max(0, Math.min(Number(delayMs) || 0, 10000));
+
   setTimeout(() => {
     recordRequest(req, statusCode, body, startedAt);
     res.status(statusCode).json(body);
   }, safeDelay);
 }
 
+// Select scenario using header or query parameter
 function selectedScenario(req, defaultScenario = 'success') {
   const key = req.get('x-mock-scenario') || req.query.scenario || defaultScenario;
   return { key, value: scenarios[key] };
 }
 
+// Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'UP', service: 'B2B Commerce Integration Simulator', version: '1.0.0' });
+  res.json({
+    status: 'UP',
+    service: 'B2B Commerce Integration Simulator',
+    version: '1.0.0'
+  });
 });
 
+// Pricing API
 app.get('/api/pricing/:sku', (req, res) => {
   const startedAt = Date.now();
   const { key, value } = selectedScenario(req, 'pricing-success');
 
   if (!value) {
-    const body = { error: 'Unknown mock scenario', scenario: key, availableScenarios: Object.keys(scenarios) };
-    return sendMock(req, res, 400, body, startedAt);
-  }
+    const body = {
+      error: 'Unknown mock scenario',
+      scenario: key,
+      availableScenarios: Object.keys(scenarios)
+    };
 
-  if (value.statusCode !== 200) {
-    return sendMock(req, res, value.statusCode, {
-      ...value.body,
-      sku: req.params.sku,
-      scenario: key
-    }, startedAt, value.delayMs);
+    return sendMock(req, res, 400, body, startedAt);
   }
 
   const body = {
@@ -71,9 +86,18 @@ app.get('/api/pricing/:sku', (req, res) => {
     sku: req.params.sku,
     scenario: key
   };
-  return sendMock(req, res, 200, body, startedAt, value.delayMs);
+
+  return sendMock(
+    req,
+    res,
+    value.statusCode || 200,
+    body,
+    startedAt,
+    value.delayMs
+  );
 });
 
+// Inventory API
 app.get('/api/inventory/:sku', (req, res) => {
   const startedAt = Date.now();
   const { key, value } = selectedScenario(req, 'inventory-in-stock');
@@ -86,13 +110,21 @@ app.get('/api/inventory/:sku', (req, res) => {
     }, startedAt);
   }
 
-  return sendMock(req, res, value.statusCode || 200, {
-    ...value.body,
-    sku: req.params.sku,
-    scenario: key
-  }, startedAt, value.delayMs);
+  return sendMock(
+    req,
+    res,
+    value.statusCode || 200,
+    {
+      ...value.body,
+      sku: req.params.sku,
+      scenario: key
+    },
+    startedAt,
+    value.delayMs
+  );
 });
 
+// Create / submit order API
 app.post('/api/orders', (req, res) => {
   const startedAt = Date.now();
   const { key, value } = selectedScenario(req, 'order-accepted');
@@ -110,26 +142,41 @@ app.post('/api/orders', (req, res) => {
     scenario: key,
     receivedOrder: req.body || null
   };
-  return sendMock(req, res, value.statusCode || 200, body, startedAt, value.delayMs);
+
+  return sendMock(
+    req,
+    res,
+    value.statusCode || 200,
+    body,
+    startedAt,
+    value.delayMs
+  );
 });
 
+// Retrieve order by order number
 app.get('/api/orders/:orderNumber', (req, res) => {
   const orderNumber = req.params.orderNumber;
 
+  console.log(`[ORDER LOOKUP] Searching for: ${orderNumber}`);
+
   const orderLog = logs.find(log =>
     log.method === 'POST' &&
-    log.path === '/api/orders' &&
-    log.requestBody?.orderNumber === orderNumber
+    log.path.split('?')[0] === '/api/orders' &&
+    String(log.requestBody?.orderNumber) === orderNumber
   );
 
   if (!orderLog) {
+    console.log(`[ORDER LOOKUP] Order not found: ${orderNumber}`);
+
     return res.status(404).json({
-      error: 'Order not found',
+      error: 'Order not found in simulator logs',
       orderNumber
     });
   }
 
-  return res.json({
+  console.log(`[ORDER LOOKUP] Order found: ${orderNumber}`);
+
+  return res.status(200).json({
     orderNumber,
     status: 'FOUND',
     statusCode: orderLog.statusCode,
@@ -139,6 +186,7 @@ app.get('/api/orders/:orderNumber', (req, res) => {
   });
 });
 
+// List available scenarios
 app.get('/admin/scenarios', (req, res) => {
   res.json({
     scenarios: Object.entries(scenarios).map(([key, value]) => ({
@@ -150,23 +198,42 @@ app.get('/admin/scenarios', (req, res) => {
   });
 });
 
+// View request logs
 app.get('/admin/logs', (req, res) => {
-  const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, MAX_LOGS));
-  res.json({ count: Math.min(logs.length, limit), logs: logs.slice(0, limit) });
+  const limit = Math.max(
+    1,
+    Math.min(Number(req.query.limit) || 50, MAX_LOGS)
+  );
+
+  res.json({
+    count: Math.min(logs.length, limit),
+    logs: logs.slice(0, limit)
+  });
 });
 
+// Clear request logs
 app.delete('/admin/logs', (req, res) => {
   logs.length = 0;
-  res.json({ message: 'Request logs cleared' });
+  res.json({
+    message: 'Request logs cleared'
+  });
 });
 
+// Catch-all route (must remain at the bottom)
 app.use((req, res) => {
   const startedAt = Date.now();
-  const body = { error: 'Route not found', method: req.method, path: req.originalUrl };
+
+  const body = {
+    error: 'Route not found',
+    method: req.method,
+    path: req.originalUrl
+  };
+
   recordRequest(req, 404, body, startedAt);
   res.status(404).json(body);
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`B2B Commerce Integration Simulator running at http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
