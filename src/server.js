@@ -113,6 +113,32 @@ app.post('/api/orders', (req, res) => {
   return sendMock(req, res, value.statusCode || 200, body, startedAt, value.delayMs);
 });
 
+app.get('/api/orders/:orderNumber', (req, res) => {
+  const orderNumber = req.params.orderNumber;
+
+  const orderLog = logs.find(log =>
+    log.method === 'POST' &&
+    log.path === '/api/orders' &&
+    log.requestBody?.orderNumber === orderNumber
+  );
+
+  if (!orderLog) {
+    return res.status(404).json({
+      error: 'Order not found',
+      orderNumber
+    });
+  }
+
+  return res.json({
+    orderNumber,
+    status: 'FOUND',
+    statusCode: orderLog.statusCode,
+    scenario: orderLog.scenario,
+    order: orderLog.requestBody,
+    erpResponse: orderLog.responseBody
+  });
+});
+
 app.get('/admin/scenarios', (req, res) => {
   res.json({
     scenarios: Object.entries(scenarios).map(([key, value]) => ({
